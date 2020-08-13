@@ -41,6 +41,13 @@ class AddSignFlow extends BaseRequest
      */
     public $sendMethodType;
     /**
+     * @var array each element should be in the following format:
+     * - email (string)
+     * - firstName (string)
+     * - lastName (string)
+     */
+    public $recipients;
+    /**
      * @var bool
      */
     public $isSendApprovalMailToAllSigners;
@@ -70,6 +77,7 @@ class AddSignFlow extends BaseRequest
      * - smsPhoneNumber (string)
      * - userPassword (string)
      * - isDisableAttachment (boolean)
+     * - isDisplayDownloadDocument (boolean)
      */
     public $users;
     /**
@@ -92,6 +100,11 @@ class AddSignFlow extends BaseRequest
      * @var string
      */
     public $base64DocumentFile;
+
+    public function getContentType(): string
+    {
+        return 'application/json-patch+json';
+    }
 
     /**
      * @inheritdoc

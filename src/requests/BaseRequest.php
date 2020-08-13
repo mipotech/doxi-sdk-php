@@ -4,14 +4,16 @@ namespace mipotech\doxi\requests;
 
 abstract class BaseRequest
 {
-    const BASE_ENDPOINT = 'https://cloud.doxi.co.il/Pumpi/DoxiAPI/ExternalDoxiAPI';
-
     /**
      * @var bool whether debug mode is enabled or not
      * When debug is enabled, verbose API call info will be
      * outputted to STDOUT.
      */
     public $debug = false;
+    /**
+     * @var string
+     */
+    protected $baseEndpoint;
     /**
      * @var string
      */
@@ -27,12 +29,22 @@ abstract class BaseRequest
      * @param string $username
      * @param string $password
      */
-    function __construct(string $username, string $password)
+    function __construct(string $baseEndpoint, string $username, string $password)
     {
+        $this->baseEndpoint = $baseEndpoint;
         $this->username = $username;
         $this->password = $password;
     }
 
+    /**
+     * Return the content type for this function
+     *
+     * @return string
+     */
+    public function getContentType(): string
+    {
+        return 'application/json';
+    }
     /**
      * Return the relative endpoint for the API function
      *
@@ -49,32 +61,38 @@ abstract class BaseRequest
     /**
      * Perform the actual API request
      *
-     * @return array
+     * @return mixed may return an array, null
      */
-    public function execute(): array
+    public function execute()
     {
         $result = [];
         $url = $this->buildFinalEndpoint();
         $ch = curl_init($url);
-        $headers = [
-            'Accept: application/json',
-        ];
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+        $headers = [];
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_HTTPAUTH => CURLAUTH_NTLM,
+            CURLOPT_USERPWD => $this->username . ':' . $this->password,
+        ]);
         if ($this->debug) {
             curl_setopt($ch, CURLOPT_VERBOSE, true);
             $verbose = fopen('php://temp', 'w+');
             curl_setopt($ch, CURLOPT_STDERR, $verbose);
         }
-        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_NTLM);
-        curl_setopt($ch, CURLOPT_USERPWD, $this->username . ':' . $this->password);
         if (strtoupper($this->getMethod()) == 'POST') {
-            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($this->buildPostDataArr()));
-            $headers[] = 'Content-type: application/json';
+            $headers[] = 'Content-type: ' . $this->getContentType();
         }
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge([
+            'Accept: application/json',
+        ], $headers));
         $res = curl_exec($ch);
         if ($this->debug) {
             if ($res === FALSE) {
@@ -85,8 +103,20 @@ abstract class BaseRequest
             echo "Verbose information:\n<pre>", htmlspecialchars($verboseLog), "</pre>\n";
         }
         $responseCode = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $contentType = preg_replace('/;.*$/', '', $contentType);
         if ($responseCode < 300) {
-            $result = json_decode($res, true);
+            switch ($contentType) {
+                case 'application/pdf':
+                    $result = $res;
+                    break;
+                case 'application/json':
+                    $result = json_decode($res, true);
+                    break;
+                default:
+                    $result = $res;     // return the response as-is
+                    break;
+            }
         }
         curl_close($ch);
         return $result;
@@ -99,7 +129,7 @@ abstract class BaseRequest
      */
     protected function buildFinalEndpoint(): string
     {
-        $url = static::BASE_ENDPOINT . '/' . $this->getEndpoint();
+        $url = $this->baseEndpoint . '/' . $this->getEndpoint();
         if (strtoupper($this->getMethod()) === 'GET') {
             $url .= '?' . http_build_query($this->buildPostDataArr());
         }
@@ -112,7 +142,17 @@ abstract class BaseRequest
     protected function buildPostDataArr(): array
     {
         $postData = get_object_vars($this);
-        unset($postData['debug']);
+        $omitFields = [
+            'debug',
+            'baseEndpoint',
+            'username',
+            'password',
+        ];
+        foreach ($omitFields as $field) {
+            if (isset($postData[$field])) {
+                unset($postData[$field]);
+            }
+        }
         return $postData;
     }
 }
