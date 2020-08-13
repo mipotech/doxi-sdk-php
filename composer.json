@@ -1,0 +1,23 @@
+{
+    "name": "mipotech/doxi-sdk-php",
+    "type": "library",
+    "description": "A PHP SDK for Doxi API calls",
+    "keywords": ["doxi","pdf"],
+    "homepage": "https://www.mipotech.co.il",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Chaim Leichman ",
+            "email": "chaim@mipo.co.il"
+        }
+    ],
+    "require": {
+        "ext-curl": "7.*",
+        "php":"7.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "mipotech\\doxi\\": "src/"
+        }
+    }
+}
