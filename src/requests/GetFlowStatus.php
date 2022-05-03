@@ -2,19 +2,19 @@
 
 namespace mipotech\doxi\requests;
 
-class GetFlowsStatus extends BaseRequest
+class GetFlowStatus extends BaseRequest
 {
     /**
      * @var string[]
      */
-    public $signFlowsIds;
+    public $signFlowId;
 
     /**
      * @inheritdoc
      */
     public function getEndpoint(): string
     {
-        return 'GetFlowsStatus';
+        return 'GetFlowStatus';
     }
 
     /**
@@ -22,6 +22,6 @@ class GetFlowsStatus extends BaseRequest
      */
     public function getMethod(): string
     {
-        return 'POST';
+        return 'GET';
     }
 }

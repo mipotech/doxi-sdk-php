@@ -7,7 +7,11 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Chaim Leichman ",
+            "name": "Jonny Stein",
+            "email": "jonny@mipo.co.il"
+        },
+        {
+            "name": "Chaim Leichman",
             "email": "chaim@mipo.co.il"
         }
     ],

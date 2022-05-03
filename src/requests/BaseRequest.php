@@ -22,6 +22,10 @@ abstract class BaseRequest
      * @var string
      */
     protected $username;
+    /**
+     * @var string
+     */
+    protected $auth_token;
 
     /**
      * Construct the class with the API credentials
@@ -29,13 +33,34 @@ abstract class BaseRequest
      * @param string $username
      * @param string $password
      */
-    function __construct(string $baseEndpoint, string $username, string $password)
+    function __construct(string $loginEndpoint, string $baseEndpoint, string $username, string $password)
     {
+        $this->loginEndpoint = $loginEndpoint;
         $this->baseEndpoint = $baseEndpoint;
         $this->username = $username;
         $this->password = $password;
+		if(isset($_COOKIE["doxi_token"]) && $_COOKIE["doxi_token"]){
+			$this->auth_token = $_COOKIE["doxi_token"];
+		}
+		else {
+			$res = $this->login();
+			$this->auth_token = $res['access_token'];
+			setcookie("doxi_token",$res['access_token'],(time() + $res['expires_in']),'/','',1,1);
+		}
     }
 
+    /**
+     * Login and Save auth_token
+     *
+     * @return string
+     */
+    public function login(): array
+    {
+		$login_data = ["grant_type" => "password", "username" => $this->username, "password" => $this->password, "client_id" => "doxi"];
+		$res = $this->execute(1,$login_data);
+		return $res;
+    }
+	
     /**
      * Return the content type for this function
      *
@@ -63,10 +88,10 @@ abstract class BaseRequest
      *
      * @return mixed may return an array, null
      */
-    public function execute()
+    public function execute($login=false,$postdata=[])
     {
         $result = [];
-        $url = $this->buildFinalEndpoint();
+        $url = $this->buildFinalEndpoint($login);
         $ch = curl_init($url);
         $headers = [];
         curl_setopt_array($ch, [
@@ -77,20 +102,20 @@ abstract class BaseRequest
             CURLOPT_TIMEOUT => 0,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_HTTPAUTH => CURLAUTH_NTLM,
-            CURLOPT_USERPWD => $this->username . ':' . $this->password,
         ]);
         if ($this->debug) {
             curl_setopt($ch, CURLOPT_VERBOSE, true);
             $verbose = fopen('php://temp', 'w+');
             curl_setopt($ch, CURLOPT_STDERR, $verbose);
         }
-        if (strtoupper($this->getMethod()) == 'POST') {
+        if ($login || strtoupper($this->getMethod()) == 'POST') {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($this->buildPostDataArr()));
-            $headers[] = 'Content-type: ' . $this->getContentType();
+            curl_setopt($ch, CURLOPT_POSTFIELDS, ($login ? http_build_query($postdata) : json_encode($this->buildPostDataArr())));
+            $headers[] = 'Content-type: ' . ($login ? 'application/x-www-form-urlencoded' : $this->getContentType());
         }
         curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge([
+            'Authorization: Bearer '.$this->auth_token,
+            'X-Tenant: uti',
             'Accept: application/json',
         ], $headers));
         $res = curl_exec($ch);
@@ -127,10 +152,10 @@ abstract class BaseRequest
      *
      * @return string
      */
-    protected function buildFinalEndpoint(): string
+    protected function buildFinalEndpoint($login): string
     {
-        $url = $this->baseEndpoint . '/' . $this->getEndpoint();
-        if (strtoupper($this->getMethod()) === 'GET') {
+        $url = ($login ? $this->loginEndpoint : $this->baseEndpoint). '/' . ($login ? 'token' : $this->getEndpoint());
+        if (!$login && strtoupper($this->getMethod()) === 'GET') {
             $url .= '?' . http_build_query($this->buildPostDataArr());
         }
         return $url;
@@ -144,6 +169,7 @@ abstract class BaseRequest
         $postData = get_object_vars($this);
         $omitFields = [
             'debug',
+            'loginEndpoint',
             'baseEndpoint',
             'username',
             'password',
