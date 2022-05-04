@@ -39,14 +39,7 @@ abstract class BaseRequest
         $this->baseEndpoint = $baseEndpoint;
         $this->username = $username;
         $this->password = $password;
-		if(isset($_COOKIE["doxi_token"]) && $_COOKIE["doxi_token"]){
-			$this->auth_token = $_COOKIE["doxi_token"];
-		}
-		else {
-			$res = $this->login();
-			$this->auth_token = $res['access_token'];
-			setcookie("doxi_token",$res['access_token'],(time() + $res['expires_in']),'/','',1,1);
-		}
+		$this->auth_token = $this->login();
     }
 
     /**
@@ -54,11 +47,17 @@ abstract class BaseRequest
      *
      * @return string
      */
-    public function login(): array
+    public function login(): string
     {
-		$login_data = ["grant_type" => "password", "username" => $this->username, "password" => $this->password, "client_id" => "doxi"];
-		$res = $this->execute(1,$login_data);
-		return $res;
+		if(isset($_COOKIE["doxi_token"]) && $_COOKIE["doxi_token"]){
+			return $_COOKIE["doxi_token"];
+		}
+		else {
+			$login_data = ["grant_type" => "password", "username" => $this->username, "password" => $this->password, "client_id" => "doxi"];
+			$res = $this->execute(1,$login_data);
+			setcookie("doxi_token",$res['access_token'],(time() + $res['expires_in'] - 30),'/','',1,1);
+			return $res['access_token'];
+		}
     }
 	
     /**
@@ -88,7 +87,7 @@ abstract class BaseRequest
      *
      * @return mixed may return an array, null
      */
-    public function execute($login=false,$postdata=[])
+    public function execute($login=false,$postdata=[],$takes=0)
     {
         $result = [];
         $url = $this->buildFinalEndpoint($login);
@@ -103,7 +102,7 @@ abstract class BaseRequest
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         ]);
-        if ($this->debug) {
+        if ($takes || $this->debug) {
             curl_setopt($ch, CURLOPT_VERBOSE, true);
             $verbose = fopen('php://temp', 'w+');
             curl_setopt($ch, CURLOPT_STDERR, $verbose);
@@ -143,6 +142,32 @@ abstract class BaseRequest
                     break;
             }
         }
+		else {
+			if(!$takes){
+				curl_close($ch);
+				$this->auth_token = $this->login();
+				sleep(1);
+				return $this->execute($login,$postdata,1);
+			}
+			else {
+				switch ($contentType) {
+					case 'application/json':
+						$result = json_decode($res, true);
+						$result["errorResponseCode"] = $responseCode;
+						break;
+					default:
+						$result = ["errorResponseCode" => $responseCode, "errorText" => $res];
+						break;
+				}
+				if ($res === FALSE) {
+					$result["errorRes"] = "cUrl error (#".curl_errno($ch)."): ".htmlspecialchars(curl_error($ch))."<br>\n";
+				}
+				rewind($verbose);
+				$verboseLog = stream_get_contents($verbose);
+				$result["errorToken"] = $this->auth_token;
+				$result["errorResVerbose"] = "Verbose information:\n<pre>".htmlspecialchars($verboseLog)."</pre>\n";
+			}
+		}
         curl_close($ch);
         return $result;
     }
