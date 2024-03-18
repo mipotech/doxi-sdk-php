@@ -13,7 +13,7 @@ php composer.phar require --prefer-dist mipotech/doxi-sdk-php
 or add
 
 ```
-"mipotech/doxi-sdk-php": "~2.3"
+"mipotech/doxi-sdk-php": "~2.4"
 ```
 
 to the require section of your composer.json.
