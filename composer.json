@@ -11,13 +11,13 @@
             "email": "jonny@mipo.co.il"
         },
         {
-            "name": "Chaim Leichman",
-            "email": "chaim@mipo.co.il"
+            "name": "Mipo Technologies",
+            "email": "team@mipo.co.il"
         }
     ],
     "require": {
-        "ext-curl": "7.*",
-        "php":"7.*"
+        "ext-curl": ">=7",
+        "php":">=7"
     },
     "autoload": {
         "psr-4": {
