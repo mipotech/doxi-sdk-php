@@ -16,8 +16,8 @@
         }
     ],
     "require": {
-        "ext-curl": "7.*",
-        "php":"7.*"
+        "ext-curl": ">=7",
+        "php":">=7"
     },
     "autoload": {
         "psr-4": {

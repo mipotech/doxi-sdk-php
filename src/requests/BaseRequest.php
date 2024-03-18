@@ -145,7 +145,7 @@ abstract class BaseRequest
 		else {
 			if(!$takes){
 				curl_close($ch);
-				$this->auth_token = $this->login();
+				//$this->auth_token = $this->login();
 				sleep(1);
 				return $this->execute($login,$postdata,1);
 			}
