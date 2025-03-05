@@ -198,6 +198,7 @@ abstract class BaseRequest
             'baseEndpoint',
             'username',
             'password',
+            'auth_token',
         ];
         foreach ($omitFields as $field) {
             if (isset($postData[$field])) {
